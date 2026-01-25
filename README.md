@@ -13,7 +13,7 @@ A modular collection of tools and scripts to enhance your anki-based language le
 | `deck-converter`*     | Convert TSV+audio into `.apkg` Anki decks using config-driven workflow  |
 | `youtube-to-anki`*    | Convert YouTube subtitles/audio into fully timestamped Anki cards       |
 
-*=coming soon
+*=haven't used these tools in a very long time and will update them when I use them again
 
 ### Requirements
 

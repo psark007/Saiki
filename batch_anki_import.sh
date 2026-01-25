@@ -55,14 +55,14 @@ case "$lang" in
     LANG_CODE="ja"
     TLD="com"
     TEMPO="1.35"
-    SENTENCE_FILE="$HOME/Documents/sentences_jp.txt"
+    SENTENCE_FILE="$HOME/Languages/Anki/sentences_jp.txt"
     ;;
   es)
     DECK_NAME="Español"
     LANG_CODE="es"
     TLD="es"
     TEMPO="1.25"
-    SENTENCE_FILE="$HOME/Documents/sentences_es.txt"
+    SENTENCE_FILE="$HOME/Languages/Anki/sentences_es.txt"
     ;;
 esac
 

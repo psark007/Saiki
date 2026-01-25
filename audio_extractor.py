@@ -50,7 +50,7 @@ lang_map: Dict[str, str] = {
 media_dir = os.path.expanduser("~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media")
 
 # Default export root (can be overridden by --outdir)
-output_root = os.path.expanduser("~/Documents/anki-audio")
+output_root = os.path.expanduser("~/Languages/Anki/anki-audio")
 
 AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
 
@@ -168,7 +168,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--outdir",
-        help="Output directory. Default: ~/Documents/anki-audio/<language>",
+        help="Output directory. Default: ~/Languages/Anki/anki-audio/<language>",
     )
 
     # Keep your existing useful behavior

@@ -52,7 +52,7 @@ DECK_TO_LANGUAGE: Dict[str, str] = {
 }
 
 # Default output root (mirrors the “one folder per language” idea)
-DEFAULT_OUTPUT_ROOT = os.path.expanduser("~/Documents/anki-words")
+DEFAULT_OUTPUT_ROOT = os.path.expanduser("~/Languages/Anki/anki-words")
 
 
 # -------------------------
@@ -320,7 +320,7 @@ def main() -> int:
     # Similar “bashy” knobs
     parser.add_argument("--field", default="Back", help="Which note field to read (default: Back).")
     parser.add_argument("--min-freq", type=int, default=2, help="Minimum frequency to include (default: 2).")
-    parser.add_argument("--outdir", help="Output directory (default: ~/Documents/anki-words/<language>).")
+    parser.add_argument("--outdir", help="Output directory (default: ~/Languages/Anki/anki-words/<language>).")
     parser.add_argument("--out", help="Output file path (default: <outdir>/words_<lang>.txt).")
     parser.add_argument(
         "--full-field",
@@ -333,7 +333,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--logfile",
-        default=os.path.expanduser("~/Documents/anki-words/extract_words.log"),
+        default=os.path.expanduser("~/Languages/Anki/anki-words/extract_words.log"),
         help="Log file path.",
     )
 

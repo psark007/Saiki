@@ -72,7 +72,7 @@ Most scripts assume:
 ```
 
 Outputs:
-- Copies audio into `~/Documents/anki-audio/<language>/` by default
+- Copies audio into `~/Languages/Anki/anki-audio/<language>/` by default
 - Writes `<language>.m3u`
 - With `--concat`, writes `<language>_concat.mp3` (keeps individual files)
 
@@ -98,8 +98,8 @@ Outputs:
 - `gtts-cli`, `ffmpeg`, `curl`
 
 ### Sentence files
-- Japanese: `~/Documents/sentences_jp.txt`
-- Spanish: `~/Documents/sentences_es.txt`
+- Japanese: `~/Languages/Anki/sentences_jp.txt`
+- Spanish: `~/Languages/Anki/sentences_es.txt`
 
 ## word-scraper
 
@@ -136,7 +136,7 @@ python -m spacy download ja_core_news_lg
 | `--deck DECK`         | Deck name (repeatable). If omitted, decks are inferred from language |
 | `--field FIELD`       | Note field to read (default: `Back`)                                 |
 | `--min-freq N`        | Minimum frequency to include (default: `2`)                          |
-| `--outdir DIR`        | Output directory (default: `~/Documents/anki-words/<language>`)      |
+| `--outdir DIR`        | Output directory (default: `~/Languages/Anki/anki-words/<language>`)      |
 | `--out FILE`          | Output file path (default: `<outdir>/words_<lang>.txt`)              |
 | `--full-field`        | Use full field text instead of only the first visible line           |
 | `--spacy-model MODEL` | Override spaCy model name                                            |

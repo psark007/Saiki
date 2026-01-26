@@ -1,6 +1,6 @@
 # Anki tools for language learning
 
-A modular collection of tools and scripts to enhance your anki-based language learning. These tools focus on listening, sentence mining, sentence decks, and more. Built for language learners and immersion enthusiasts. 
+A modular collection of tools and scripts to enhance your anki-based language learning. These tools focus on listening, sentence mining, sentence decks, and more. Built for language learners and immersion enthusiasts with linux knowledge. 
 
 ### Tools Overview
 

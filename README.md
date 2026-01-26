@@ -56,9 +56,8 @@ Most scripts assume:
 ![anki_basic_card_jp](./figures/anki_basic_card_jp.png)
 
 ### Language support
-- 🇯🇵 Japanese
-- 🇪🇸 Spanish
-- 🇬🇧 English
+- 🇯🇵 日本語
+- 🇪🇸 Español
 
 
 ## audio-extractor

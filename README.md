@@ -290,3 +290,6 @@ Example:
 - Filters via stopword list only (no POS filtering)
 
 # License
+
+This project is licensed under the MIT License.
+See the `LICENSE` file for details.

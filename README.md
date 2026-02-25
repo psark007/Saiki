@@ -4,13 +4,13 @@ A modular collection of tools and scripts to enhance your anki-based language le
 
 ### Tools Overview
 
-| Tool                            | Purpose                                                                 |
-|---------------------------------|-------------------------------------------------------------------------|
-| `audio-extractor`     | Extract Anki card audio by language into playlists for passive listening |
-| `batch_importer`      | Generate TTS audio from sentence lists and import into Anki             |
-| `word-scraper`        | Extract & lemmatize words from Anki decks (frequency analysis, mining)  |
-| `yt-transcript`       | Mine vocabulary/sentences from YouTube transcripts for analysis         |
-| `deck-converter`*     | Convert TSV+audio into `.apkg` Anki decks using config-driven workflow  |
+| Tool                                      | Purpose                                                                  |
+|-------------------------------------------|--------------------------------------------------------------------------|
+| [`audio-extractor`](#audio-extractor)     | Extract Anki card audio by language into playlists for passive listening |
+| [`batch_importer`](#batch_importer)       | Generate TTS audio from sentence lists and import into Anki              |
+| [`word-scraper`](#word-scraper)           | Extract & lemmatize words from Anki decks (frequency analysis, mining)   |
+| [`yt-transcript`](#yt-transcript)         | Mine vocabulary/sentences from YouTube transcripts for analysis          |
+| `deck-converter`*                         | Convert TSV+audio into `.apkg` Anki decks using config-driven workflow   |
 | `youtube-to-anki`*    | Convert YouTube subtitles/audio into fully timestamped Anki cards       |
 
 *=haven't used these tools in a very long time and will update them when I use them again

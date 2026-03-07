@@ -23,7 +23,7 @@ Each tool has its own set of dependencies. Common dependencies includes
 - `yt-dlp`, `jq`, `yq`, `spaCy`, `gTTS`, `youtube-transcript-api`, `pyyaml`, `genanki`, `fugashi`, `regex`, `requests`
 - `ffmpeg`
 
-Personally, I like to have on venv that contains all the prerequisites. 
+Personally, I like to have one venv that contains all the prerequisites. 
 
 ```shell
 python3.12 -m venv ~/.venv/anki-tools

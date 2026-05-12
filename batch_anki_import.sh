@@ -4,35 +4,46 @@ prog="$(basename "$0")"
 
 print_help() {
   cat <<EOF
-usage: $prog [-h] {es,jp}
+usage: $prog [-h] [--tags TAG1,TAG2,...] {es,jp}
 
 positional arguments:
   {es,jp}
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help            show this help message and exit
+  --tags TAG1,TAG2,...  comma-separated list of additional tags (default: AI-generated)
+                        text-to-speech is always included
 EOF
 }
 
 arg_error_missing_lang() {
-  echo "usage: $prog [-h] {es,jp}" >&2
+  echo "usage: $prog [-h] [--tags TAG1,TAG2,...] {es,jp}" >&2
   echo "$prog: error: the following arguments are required: lang" >&2
   exit 2
 }
 
 arg_error_unknown() {
-  echo "usage: $prog [-h] {es,jp}" >&2
+  echo "usage: $prog [-h] [--tags TAG1,TAG2,...] {es,jp}" >&2
   echo "$prog: error: unrecognized arguments: $*" >&2
   exit 2
 }
 
 lang=""
+custom_tags=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)
       print_help
       exit 0
+      ;;
+    --tags)
+      if [[ -z "$2" || "$2" == -* ]]; then
+        echo "$prog: error: --tags requires an argument" >&2
+        exit 2
+      fi
+      custom_tags="$2"
+      shift 2
       ;;
     jp|es)
       if [[ -n "$lang" ]]; then
@@ -48,6 +59,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -z "$lang" ]] && arg_error_missing_lang
+
+# Build tags JSON array - text-to-speech is always included
+TAGS='["text-to-speech"'
+if [[ -n "$custom_tags" ]]; then
+  IFS=',' read -ra tag_array <<< "$custom_tags"
+  for tag in "${tag_array[@]}"; do
+    # Trim whitespace
+    tag="$(echo -e "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    TAGS+=", \"$tag\""
+  done
+else
+  TAGS+=', "AI-generated"'
+fi
+TAGS+=']'
 
 case "$lang" in
   jp)
@@ -66,8 +91,6 @@ case "$lang" in
     ;;
 esac
 
-
-TAGS='["AI-generated", "text-to-speech"]'
 count=0
 
 # Use a temporary directory to handle processing

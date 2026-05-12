@@ -66,8 +66,8 @@ Most scripts assume:
 ### Usage:
 
 ```bash
-./extract_anki_audio.py jp [--concat] [--outdir DIR] [--copy-only-new]
-./extract_anki_audio.py es [--concat] [--outdir DIR] [--copy-only-new]
+./audio_extractor.py jp [--concat] [--outdir DIR] [--copy-only-new]
+./audio_extractor.py es [--concat] [--outdir DIR] [--copy-only-new]
 ```
 
 Outputs:
@@ -86,11 +86,20 @@ Outputs:
 ### Usage
 
 ```bash
-./batch_anki_import.sh [jp|es] [--concat] [--outdir DIR]
+./batch_anki_import.sh [jp|es] [--tags TAG1,TAG2,...]
 ```
 
-- Keeps all individual MP3s.
-- If `--concat` is passed, also writes one combined MP3 for the run.
+| Option                     | Description                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `--tags TAG1,TAG2,...`     | Comma-separated list of tags. `text-to-speech` is always included. Default: `AI-generated`       |
+
+### Tag behavior
+- By default, cards are tagged with `text-to-speech` and `AI-generated`
+- When `--tags` is specified, `text-to-speech` is always included, and `AI-generated` is replaced by the custom tags
+- Examples:
+  - `./batch_anki_import.sh jp` → tags: `text-to-speech`, `AI-generated`
+  - `./batch_anki_import.sh jp --tags manual` → tags: `text-to-speech`, `manual`
+  - `./batch_anki_import.sh es --tags "youtube,media"` → tags: `text-to-speech`, `youtube`, `media`
 
 ### Requirements
 - Anki + AnkiConnect
@@ -99,6 +108,9 @@ Outputs:
 ### Sentence files
 - Japanese: `~/Languages/Anki/sentences_jp.txt`
 - Spanish: `~/Languages/Anki/sentences_es.txt`
+
+### Notes
+- Audio files are generated in a temporary directory and cleaned up after import. No local audio files are retained.
 
 ## word-scraper
 

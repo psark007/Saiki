@@ -1,0 +1,8 @@
+requests
+regex
+spacy
+youtube-transcript-api
+fugashi[unidic-lite]
+gTTS
+pyyaml
+genanki

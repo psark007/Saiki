@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-word_extractor.py
+word_scraper.py
 
 Extract frequent words/lemmas from Anki notes via AnkiConnect.
 
 Howto:
-  ./word_extractor.py jp [--deck "日本語"] [--field Back] [--min-freq 2] [--outdir DIR] [--out FILE]
-  ./word_extractor.py es [--deck "Español"] [--field Back] [--min-freq 2] [--outdir DIR] [--out FILE]
+  ./word_scraper.py jp [--deck "日本語"] [--field Back] [--min-freq 2] [--outdir DIR] [--out FILE]
+  ./word_scraper.py es [--deck "Español"] [--field Back] [--min-freq 2] [--outdir DIR] [--out FILE]
 
 By default, this:
-  - chooses decks based on the lang code (jp/es) using deck_to_language mappings
+  - chooses decks based on the lang code (jp/es) using shared deck mappings
   - pulls notes from Anki via AnkiConnect (http://localhost:8765)
   - reads a single field (default: Back)
   - extracts the first visible line (HTML stripped) from that field
@@ -29,30 +29,11 @@ import os
 import sys
 from collections import Counter
 from html import unescape
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, List
 
-import requests
 import regex as re
 
-
-# -------------------------
-# Shared “language plumbing”
-# -------------------------
-# Match the idea used in audio_extractor.py: CLI lang code -> language bucket. :contentReference[oaicite:2]{index=2}
-LANG_MAP: Dict[str, str] = {
-    "jp": "japanese",
-    "es": "spanish",
-}
-
-# Map deck name -> language bucket (same pattern as audio_extractor.py). :contentReference[oaicite:3]{index=3}
-DECK_TO_LANGUAGE: Dict[str, str] = {
-    "日本語": "japanese",
-    "Español": "spanish",
-    # Add more deck mappings here
-}
-
-# Default output root (mirrors the “one folder per language” idea)
-DEFAULT_OUTPUT_ROOT = os.path.expanduser("~/Languages/Anki/anki-words")
+from anki_common import DEFAULT_WORD_OUTPUT_ROOT, DECK_TO_LANGUAGE, LANG_MAP, anki_request
 
 
 # -------------------------
@@ -88,26 +69,6 @@ def extract_visible_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n", text)
     return text.strip()
-
-
-# -------------------------
-# AnkiConnect helper
-# -------------------------
-def anki_request(action: str, **params):
-    """
-    Make an AnkiConnect request and return 'result'.
-    Raises a helpful error if the HTTP call fails or AnkiConnect returns an error.
-    """
-    resp = requests.post(
-        "http://localhost:8765",
-        json={"action": action, "version": 6, "params": params},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    if data.get("error") is not None:
-        raise RuntimeError(f"AnkiConnect error for {action}: {data['error']}")
-    return data["result"]
 
 
 def get_notes(query: str) -> List[dict]:
@@ -333,7 +294,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--logfile",
-        default=os.path.expanduser("~/Languages/Anki/anki-words/extract_words.log"),
+        default=os.path.join(DEFAULT_WORD_OUTPUT_ROOT, "extract_words.log"),
         help="Log file path.",
     )
 
@@ -361,7 +322,7 @@ def main() -> int:
         query = build_query_from_decks(decks)
 
     # Output paths
-    out_dir = os.path.expanduser(args.outdir) if args.outdir else os.path.join(DEFAULT_OUTPUT_ROOT, language_bucket)
+    out_dir = os.path.expanduser(args.outdir) if args.outdir else os.path.join(DEFAULT_WORD_OUTPUT_ROOT, language_bucket)
     default_outfile = os.path.join(out_dir, f"words_{args.lang}.txt")
     out_path = os.path.expanduser(args.out) if args.out else default_outfile
 
@@ -419,4 +380,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

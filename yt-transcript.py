@@ -28,14 +28,7 @@ from urllib.parse import urlparse, parse_qs
 
 from youtube_transcript_api import YouTubeTranscriptApi
 
-
-# -------------------------
-# Language mapping
-# -------------------------
-LANG_MAP = {
-    "jp": "ja",
-    "es": "es",
-}
+from anki_common import TRANSCRIPT_LANG_MAP
 
 # Small starter stopword lists (you can grow these over time)
 STOPWORDS = {
@@ -160,7 +153,7 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    lang_code = LANG_MAP[args.lang]
+    lang_code = TRANSCRIPT_LANG_MAP[args.lang]
     video_id = extract_video_id(args.video)
 
     try:
@@ -196,4 +189,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

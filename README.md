@@ -29,10 +29,10 @@ Personally, I like to have one venv that contains all the prerequisites.
 python3.12 -m venv ~/.venv/anki-tools
 source ~/.venv/anki-tools/bin/activate
 python3 -m pip install -U pip
-pip install gtts jq yq spacy youtube-transcript-api pyyaml genanki fugashi regex requests
+pip install -r requirements.txt
 
-# Also install ffmpeg
-sudo dnf install ffmpeg
+# Also install system command-line dependencies
+sudo dnf install ffmpeg jq
 ```
 That way, whenever you want to run these scripts, you can just source the venv and run the appropriate script.
 
@@ -55,6 +55,17 @@ Most scripts assume:
 - that your anki cards are basic, with audio on the front and the sentence (in the target language) on the back. These tools only look at the first line of the back, so you can have notes/translations/etc. on the following lines if you like.
 ![anki_basic_card_jp](./figures/anki_basic_card_jp.png)
 
+### Shared configuration
+
+Common settings live in `anki_common.py`, including:
+- the AnkiConnect URL
+- language code mappings (`jp`, `es`)
+- deck-to-language mappings
+- default output directories
+- the default Anki `collection.media` path used by `audio_extractor.py`
+
+If you rename your decks, add another language, or use a different default media location, update `anki_common.py` once instead of editing each script separately. Some settings can also be overridden at runtime, such as `audio_extractor.py --media-dir`.
+
 ### Language support
 - 🇯🇵 日本語
 - 🇪🇸 Español
@@ -66,14 +77,17 @@ Most scripts assume:
 ### Usage:
 
 ```bash
-./audio_extractor.py jp [--concat] [--outdir DIR] [--copy-only-new]
-./audio_extractor.py es [--concat] [--outdir DIR] [--copy-only-new]
+./audio_extractor.py jp [--concat] [--outdir DIR] [--media-dir DIR] [--copy-only-new]
+./audio_extractor.py es [--concat] [--outdir DIR] [--media-dir DIR] [--copy-only-new]
 ```
 
 Outputs:
 - Copies audio into `~/Languages/Anki/anki-audio/<language>/` by default
-- Writes `<language>.m3u`
+- Writes `<language>.m3u`, including audio copied into subfolders
 - With `--concat`, writes `<language>_concat.mp3` (keeps individual files)
+
+Options:
+- `--media-dir DIR`: override the Anki `collection.media` directory. By default, this uses the common Flatpak path: `~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media`
 
 ### Requirements
 - Anki + AnkiConnect
@@ -103,7 +117,7 @@ Outputs:
 
 ### Requirements
 - Anki + AnkiConnect
-- `gtts-cli`, `ffmpeg`, `curl`
+- `gtts-cli`, `ffmpeg`, `curl`, `jq`
 
 ### Sentence files
 - Japanese: `~/Languages/Anki/sentences_jp.txt`
@@ -111,6 +125,7 @@ Outputs:
 
 ### Notes
 - Audio files are generated in a temporary directory and cleaned up after import. No local audio files are retained.
+- Sentences and tags are encoded as JSON with `jq`, so quotes and punctuation in sentence files are handled safely.
 
 ## word-scraper
 

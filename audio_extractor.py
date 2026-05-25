@@ -28,45 +28,17 @@ import argparse
 import shutil
 import subprocess
 import tempfile
-from typing import Dict, List
+from typing import List
 
-import requests
-
-
-# Map deck name -> language bucket
-deck_to_language: Dict[str, str] = {
-    "日本語": "japanese",
-    "Español": "spanish",
-    # Add more mappings here
-}
-
-# Map CLI lang code -> language bucket
-lang_map: Dict[str, str] = {
-    "jp": "japanese",
-    "es": "spanish",
-}
-
-# If Anki is installed as a flatpak, media dir is typically:
-media_dir = os.path.expanduser("~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media")
-
-# Default export root (can be overridden by --outdir)
-output_root = os.path.expanduser("~/Languages/Anki/anki-audio")
+from anki_common import (
+    DEFAULT_ANKI_MEDIA_DIR,
+    DEFAULT_AUDIO_OUTPUT_ROOT,
+    DECK_TO_LANGUAGE,
+    LANG_MAP,
+    anki_request,
+)
 
 AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
-
-
-def anki_request(action: str, **params):
-    """Make an AnkiConnect request and return 'result'. Raise on error."""
-    resp = requests.post(
-        "http://localhost:8765",
-        json={"action": action, "version": 6, "params": params},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    if data.get("error") is not None:
-        raise RuntimeError(f"AnkiConnect error for {action}: {data['error']}")
-    return data["result"]
 
 
 def ensure_ffmpeg_available() -> None:
@@ -75,19 +47,35 @@ def ensure_ffmpeg_available() -> None:
         raise RuntimeError("ffmpeg not found in PATH. Install ffmpeg to use --concat.")
 
 
+def resolve_media_paths(media_dir: str, out_dir: str, media_name: str) -> tuple[str, str] | None:
+    """Return safe source/destination paths for an Anki media filename."""
+    normalized = os.path.normpath(media_name)
+    if os.path.isabs(normalized) or normalized.startswith(".."):
+        return None
+    return os.path.join(media_dir, normalized), os.path.join(out_dir, normalized)
+
+
 def build_playlist(out_dir: str, language: str) -> str:
     """
-    Create an .m3u playlist listing audio files in out_dir (sorted by filename).
+    Create an .m3u playlist listing audio files under out_dir (sorted by filename).
     Returns the playlist path.
     """
     m3u_path = os.path.join(out_dir, f"{language}.m3u")
-    files = sorted(
-        f for f in os.listdir(out_dir)
-        if f.lower().endswith(AUDIO_EXTS) and os.path.isfile(os.path.join(out_dir, f))
-    )
+    concat_name = f"{language}_concat.mp3"
+    files: List[str] = []
+    for root, _, filenames in os.walk(out_dir):
+        for fname in filenames:
+            abs_path = os.path.join(root, fname)
+            rel_path = os.path.relpath(abs_path, out_dir)
+            if rel_path == os.path.basename(m3u_path):
+                continue
+            if rel_path == concat_name:
+                continue
+            if fname.lower().endswith(AUDIO_EXTS) and os.path.isfile(abs_path):
+                files.append(rel_path)
 
     with open(m3u_path, "w", encoding="utf-8") as fh:
-        for fname in files:
+        for fname in sorted(files):
             fh.write(f"{fname}\n")
 
     return m3u_path
@@ -156,7 +144,7 @@ def main() -> int:
     # REQUIRED positional language code: jp / es 
     parser.add_argument(
         "lang",
-        choices=sorted(lang_map.keys()),
+        choices=sorted(LANG_MAP.keys()),
         help="Language code (jp or es).",
     )
 
@@ -170,6 +158,11 @@ def main() -> int:
         "--outdir",
         help="Output directory. Default: ~/Languages/Anki/anki-audio/<language>",
     )
+    parser.add_argument(
+        "--media-dir",
+        default=DEFAULT_ANKI_MEDIA_DIR,
+        help="Anki collection.media directory. Defaults to the common Flatpak profile path.",
+    )
 
     # Keep your existing useful behavior
     parser.add_argument(
@@ -180,16 +173,17 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    language = lang_map[args.lang]
+    language = LANG_MAP[args.lang]
+    media_dir = os.path.expanduser(args.media_dir)
 
     # Find all decks whose mapped language matches
-    selected_decks = [deck for deck, lang in deck_to_language.items() if lang == language]
+    selected_decks = [deck for deck, lang in DECK_TO_LANGUAGE.items() if lang == language]
     if not selected_decks:
         print(f"No decks found for language: {language}", file=sys.stderr)
         return 1
 
-    # Output folder: either user-specified --outdir or default output_root/<language>
-    out_dir = os.path.expanduser(args.outdir) if args.outdir else os.path.join(output_root, language)
+    # Output folder: either user-specified --outdir or default output root/<language>
+    out_dir = os.path.expanduser(args.outdir) if args.outdir else os.path.join(DEFAULT_AUDIO_OUTPUT_ROOT, language)
     os.makedirs(out_dir, exist_ok=True)
 
     # Collect note IDs across selected decks
@@ -212,8 +206,11 @@ def main() -> int:
         for field in fields.values():
             val = field.get("value", "") or ""
             for match in re.findall(r"\[sound:(.+?)\]", val):
-                src = os.path.join(media_dir, match)
-                dst = os.path.join(out_dir, match)
+                paths = resolve_media_paths(media_dir, out_dir, match)
+                if paths is None:
+                    print(f"Skipping unsafe media reference: {match}", file=sys.stderr)
+                    continue
+                src, dst = paths
 
                 if not os.path.exists(src):
                     continue
@@ -229,7 +226,7 @@ def main() -> int:
                 shutil.copy2(src, dst)
                 copied.append(match)
 
-    # Create playlist (top-level audio only; if you have subfolders, you can extend this)
+    # Create playlist, including audio in subfolders.
     m3u_path = build_playlist(out_dir, language)
 
     print(f"\n✅ Copied {len(copied)} files for {language}")
@@ -251,4 +248,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

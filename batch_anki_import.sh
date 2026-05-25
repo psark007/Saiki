@@ -60,19 +60,32 @@ done
 
 [[ -z "$lang" ]] && arg_error_missing_lang
 
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "$prog: error: required command not found: $1" >&2
+    exit 1
+  fi
+}
+
+require_command gtts-cli
+require_command ffmpeg
+require_command curl
+require_command jq
+
 # Build tags JSON array - text-to-speech is always included
-TAGS='["text-to-speech"'
+tags=("text-to-speech")
 if [[ -n "$custom_tags" ]]; then
   IFS=',' read -ra tag_array <<< "$custom_tags"
   for tag in "${tag_array[@]}"; do
     # Trim whitespace
-    tag="$(echo -e "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    TAGS+=", \"$tag\""
+    tag="$(printf '%s' "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$tag" ]] && tags+=("$tag")
   done
 else
-  TAGS+=', "AI-generated"'
+  tags+=("AI-generated")
 fi
-TAGS+=']'
+
+TAGS="$(printf '%s\n' "${tags[@]}" | jq -R . | jq -s .)"
 
 case "$lang" in
   jp)
@@ -93,8 +106,14 @@ esac
 
 count=0
 
+if [[ ! -f "$SENTENCE_FILE" ]]; then
+    echo "$prog: error: sentence file not found: $SENTENCE_FILE" >&2
+    exit 1
+fi
+
 # Use a temporary directory to handle processing
 TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 while IFS= read -r sentence || [[ -n "$sentence" ]]; do
     [[ -z "$sentence" ]] && continue
@@ -115,31 +134,39 @@ while IFS= read -r sentence || [[ -n "$sentence" ]]; do
         if ffmpeg -loglevel error -i "$RAW_OUTPUT" -filter:a "atempo=$TEMPO" -y "$OUTPUT_PATH" < /dev/null; then
             
             # 3. Add to Anki using the sped-up file
-            result=$(curl -s localhost:8765 -X POST -d "{
-		    \"action\": \"addNote\", 
-		    \"version\": 6, 
-		    \"params\": { 
-			    \"note\": { 
-				    \"deckName\": \"$DECK_NAME\", 
-				    \"modelName\": \"Basic\", 
-				    \"fields\": { 
-					    \"Front\": \"\", 
-					    \"Back\": \"$sentence\" 
-				    }, 
-				    \"options\": {
-					    \"allowDuplicate\": false 
-				    }, 
-			    	    \"tags\": $TAGS, 
-				    \"audio\": [{ 
-					    \"path\": \"$OUTPUT_PATH\", 
-					    \"filename\": \"${BASENAME}.mp3\", 
-					    \"fields\": [\"Front\"] 
-				    }] 
-		    	    } 
-	     		} 
-		}")
+            payload="$(jq -n \
+              --arg deck "$DECK_NAME" \
+              --arg sentence "$sentence" \
+              --arg path "$OUTPUT_PATH" \
+              --arg filename "${BASENAME}.mp3" \
+              --argjson tags "$TAGS" \
+              '{
+                action: "addNote",
+                version: 6,
+                params: {
+                  note: {
+                    deckName: $deck,
+                    modelName: "Basic",
+                    fields: {
+                      Front: "",
+                      Back: $sentence
+                    },
+                    options: {
+                      allowDuplicate: false
+                    },
+                    tags: $tags,
+                    audio: [{
+                      path: $path,
+                      filename: $filename,
+                      fields: ["Front"]
+                    }]
+                  }
+                }
+              }')"
 
-            if [[ "$result" == *'"error": null'* ]]; then
+            result=$(curl -s localhost:8765 -X POST -H "Content-Type: application/json" -d "$payload")
+
+            if jq -e '.error == null' >/dev/null 2>&1 <<< "$result"; then
                 echo "✅ Added card: $sentence"
                 ((count++))
             else
@@ -157,8 +184,5 @@ while IFS= read -r sentence || [[ -n "$sentence" ]]; do
     fi
 
 done <"$SENTENCE_FILE"
-
-# Cleanup temp directory
-rm -rf "$TEMP_DIR"
 
 echo "🎉 Done! Added $count cards to deck \"$DECK_NAME\"."

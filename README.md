@@ -1,322 +1,234 @@
-# Anki tools for language learning
+# Saiki
 
-A modular collection of tools and scripts to enhance your anki-based language learning. These tools focus on listening, sentence mining, sentence decks, and more. Built for language learners and immersion enthusiasts with linux knowledge. 
+**Saiki** (`採記`) is a small toolkit for Anki-based language learning workflows:
+listening playlists, word mining, YouTube transcript mining, TTS sentence
+imports, and known/new word comparison.
 
-### Tools Overview
+The name is a coined Japanese compound from `採` as in gathering/collecting and
+`記` as in remembering or recording. Pronunciation: `saiki`, roughly
+"sigh-key".
 
-| Tool                                      | Purpose                                                                  |
-|-------------------------------------------|--------------------------------------------------------------------------|
-| [`audio-extractor`](#audio-extractor)     | Extract Anki card audio by language into playlists for passive listening |
-| [`batch_importer`](#batch_importer)       | Generate TTS audio from sentence lists and import into Anki              |
-| [`word-scraper`](#word-scraper)           | Extract & lemmatize words from Anki decks (frequency analysis, mining)   |
-| [`yt-transcript`](#yt-transcript)         | Mine vocabulary/sentences from YouTube transcripts for analysis          |
-| `deck-converter`*                         | Convert TSV+audio into `.apkg` Anki decks using config-driven workflow   |
-| `youtube-to-anki`*    | Convert YouTube subtitles/audio into fully timestamped Anki cards       |
+```shell
+./saiki.py --help
+```
 
-*=haven't used these tools in a very long time and will update them when I use them again
+## Requirements
 
-### Requirements
-
-Each tool has its own set of dependencies. Common dependencies includes
-- Python3
+- Python 3.12 recommended
 - [Anki](https://apps.ankiweb.net/) with [AnkiConnect](https://github.com/amikey/anki-connect)
-- `yt-dlp`, `jq`, `yq`, `spaCy`, `gTTS`, `youtube-transcript-api`, `pyyaml`, `genanki`, `fugashi`, `regex`, `requests`
 - `ffmpeg`
-
-Personally, I like to have one venv that contains all the prerequisites. 
-
-```shell
-python3.12 -m venv ~/.venv/anki-tools
-source ~/.venv/anki-tools/bin/activate
-python3 -m pip install -U pip
-pip install -r requirements.txt
-
-# Also install system command-line dependencies
-sudo dnf install ffmpeg jq
-```
-That way, whenever you want to run these scripts, you can just source the venv and run the appropriate script.
+- Python dependencies from `requirements.txt`
+- spaCy models for word mining:
 
 ```shell
-source ~/.venv/anki-tools/bin/activate
-```
-
-### Getting started
-
-Clone the repository:
-```shell
-git clone https://git.pawelsarkowicz.xyz/ps/anki-tools.git
-cd anki-tools
-```
-Then explore. 
-
-Most scripts assume:
-- Anki is running
-- the AnkiConnect add-on is enabled (default: http://localhost:8765)
-- that your anki cards are basic, with audio on the front and the sentence (in the target language) on the back. These tools only look at the first line of the back, so you can have notes/translations/etc. on the following lines if you like.
-![anki_basic_card_jp](./figures/anki_basic_card_jp.png)
-
-### Shared configuration
-
-Common settings live in `anki_common.py`, including:
-- the AnkiConnect URL
-- language code mappings (`jp`, `es`)
-- deck-to-language mappings
-- default output directories
-- the default Anki `collection.media` path used by `audio_extractor.py`
-
-If you rename your decks, add another language, or use a different default media location, update `anki_common.py` once instead of editing each script separately. Some settings can also be overridden at runtime, such as `audio_extractor.py --media-dir`.
-
-### Language support
-- 🇯🇵 日本語
-- 🇪🇸 Español
-
-
-## audio-extractor
-**Purpose**: Extract audio referenced by `[sound:...]` tags from Anki decks, grouped by language.
-
-### Usage:
-
-```bash
-./audio_extractor.py jp [--concat] [--outdir DIR] [--media-dir DIR] [--copy-only-new]
-./audio_extractor.py es [--concat] [--outdir DIR] [--media-dir DIR] [--copy-only-new]
-```
-
-Outputs:
-- Copies audio into `~/Languages/Anki/anki-audio/<language>/` by default
-- Writes `<language>.m3u`, including audio copied into subfolders
-- With `--concat`, writes `<language>_concat.mp3` (keeps individual files)
-
-Options:
-- `--media-dir DIR`: override the Anki `collection.media` directory. By default, this uses the common Flatpak path: `~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media`
-
-### Requirements
-- Anki + AnkiConnect
-- `requests`
-- `ffmpeg` (only if you use `--concat`)
-
-## batch_importer
-**Purpose**: Generate TTS audio from a sentence list and add notes to Anki via AnkiConnect.
-
-### Usage
-
-```bash
-./batch_anki_import.sh [jp|es] [--tags TAG1,TAG2,...]
-```
-
-| Option                     | Description                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| `--tags TAG1,TAG2,...`     | Comma-separated list of tags. `text-to-speech` is always included. Default: `AI-generated`       |
-
-### Tag behavior
-- By default, cards are tagged with `text-to-speech` and `AI-generated`
-- When `--tags` is specified, `text-to-speech` is always included, and `AI-generated` is replaced by the custom tags
-- Examples:
-  - `./batch_anki_import.sh jp` → tags: `text-to-speech`, `AI-generated`
-  - `./batch_anki_import.sh jp --tags manual` → tags: `text-to-speech`, `manual`
-  - `./batch_anki_import.sh es --tags "youtube,media"` → tags: `text-to-speech`, `youtube`, `media`
-
-### Requirements
-- Anki + AnkiConnect
-- `gtts-cli`, `ffmpeg`, `curl`, `jq`
-
-### Sentence files
-- Japanese: `~/Languages/Anki/sentences_jp.txt`
-- Spanish: `~/Languages/Anki/sentences_es.txt`
-
-### Notes
-- Audio files are generated in a temporary directory and cleaned up after import. No local audio files are retained.
-- Sentences and tags are encoded as JSON with `jq`, so quotes and punctuation in sentence files are handled safely.
-
-## word-scraper
-
-Extract frequent words from Anki notes using **AnkiConnect** and **spaCy**.
-This is primarily intended for language learning workflows (currently Japanese and Spanish).
-
-The script:
-- queries notes from Anki
-- extracts visible text from a chosen field
-- tokenizes with spaCy
-- filters out stopwords / grammar
-- counts word frequencies
-- writes a sorted word list to a text file
-
-
-### Requirements
-
-- Anki + AnkiConnect - Python **3.12** (recommended; spaCy is not yet stable on 3.14)
-- `spacy`, `regex`, `requests`
-- spaCy models:
-```bash
 python -m spacy download es_core_news_sm
 python -m spacy download ja_core_news_lg
 ```
 
-### Usage
-```bash
-./word_scraper.py {jp,es} [options]
+Setup example:
+
+```shell
+python3.12 -m venv ~/.venv/saiki
+source ~/.venv/saiki/bin/activate
+python3 -m pip install -U pip
+pip install -r requirements.txt
+sudo dnf install ffmpeg
 ```
 
-| Option                | Description                                                          |
-| --------------------- | -------------------------------------------------------------------- |
-| `--query QUERY`       | Full Anki search query (e.g. `deck:"Español" tag:foo`)               |
-| `--deck DECK`         | Deck name (repeatable). If omitted, decks are inferred from language |
-| `--field FIELD`       | Note field to read (default: `Back`)                                 |
-| `--min-freq N`        | Minimum frequency to include (default: `2`)                          |
-| `--outdir DIR`        | Output directory (default: `~/Languages/Anki/anki-words/<language>`)      |
-| `--out FILE`          | Output file path (default: `<outdir>/words_<lang>.txt`)              |
-| `--full-field`        | Use full field text instead of only the first visible line           |
-| `--spacy-model MODEL` | Override spaCy model name                                            |
-| `--logfile FILE`      | Log file path                                                        |
+## Configuration
 
-### Examples
-#### Basic usage (auto-detected decks)
-```bash
-./word_scraper.py jp
-./word_scraper.py es
+Defaults are built in, but you can override them with YAML:
+
+```shell
+~/.config/saiki/config.yaml
 ```
 
-#### Specify a deck explicitly
-```bash
-./word_scraper.py jp --deck "日本語"
-./word_scraper.py es --deck "Español"
+Or pass a config explicitly:
+
+```shell
+./saiki.py --config ./config.yaml words jp
 ```
 
-#### Use a custom Anki query
-```bash
-./word_scraper.py es --query 'deck:"Español" tag:youtube'
+Example:
+
+```yaml
+anki_connect_url: http://localhost:8765
+media_dir: ~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media
+audio_output_root: ~/Languages/Anki/anki-audio
+word_output_root: ~/Languages/Anki/anki-words
+sentence_dir: ~/Languages/Anki
+note_model: Basic
+fields:
+  front: Front
+  back: Back
+languages:
+  jp:
+    name: japanese
+    transcript_code: ja
+    tts_code: ja
+    tts_tld: com
+    tts_tempo: 1.35
+    decks: ["日本語"]
+    field: Back
+    word_model: ja_core_news_lg
+    sentence_file: sentences_jp.txt
+  es:
+    name: spanish
+    transcript_code: es
+    tts_code: es
+    tts_tld: es
+    tts_tempo: 1.25
+    decks: ["Español"]
+    field: Back
+    word_model: es_core_news_sm
+    sentence_file: sentences_es.txt
 ```
 
-#### Change output location and frequency threshold
-```bash
-./word_scraper.py jp --min-freq 3 --out words_jp.txt
-./word_scraper.py es --outdir ~/tmp/words --out spanish_words.txt
+A copyable template is also available at `examples/config.yaml`.
+
+Supported language codes by default:
+
+- `jp`
+- `es`
+
+## CLI
+
+### Audio
+
+Extract audio referenced by `[sound:...]` tags from configured decks and create
+an `.m3u` playlist.
+
+```shell
+./saiki.py audio jp
+./saiki.py audio es --concat
+./saiki.py audio jp --media-dir ~/.local/share/Anki2/User\ 1/collection.media --copy-only-new
 ```
 
-#### Process full field text (not just first line)
-```bash
-./word_scraper.py jp --full-field
+Outputs go to `~/Languages/Anki/anki-audio/<language>/` by default.
+
+### Words
+
+Extract frequent words from Anki notes using AnkiConnect and spaCy.
+
+```shell
+./saiki.py words jp
+./saiki.py words es --deck "Español"
+./saiki.py words es --query 'deck:"Español" tag:youtube'
+./saiki.py words jp --min-freq 3 --out words_jp.txt
+./saiki.py words jp --full-field
 ```
 
-### Output format
-The output file contains one entry per line:
-```
+Output format:
+
+```text
 word frequency
 ```
+
 Examples:
-```
+
+```text
 comer 12
 hablar 9
 行く (行き) 8
 見る (見た) 6
 ```
 
-- Spanish output uses lemmas
-- Japanese output includes lemma (surface) when they differ
+### YouTube
 
-### Language-specific notes
-#### Japanese
-- Filters out particles and common grammar
-- Keeps nouns, verbs, adjectives, and proper nouns
-- Requires `regex` for Unicode script matching
+Mine vocabulary or sentence rows from YouTube subtitles.
 
-#### Spanish
-- Filters stopwords
-- Keeps alphabetic tokens only
-- Lemmatized output
-
-## yt-transcript 
-Extract vocabulary or sentence-level text from YouTube video subtitles (transcripts), for language learning or analysis.
-
-The script:
-- fetches captions via `youtube-transcript-api`
-- supports **Spanish (es)** and **Japanese (jp)**
-- tokenizes Japanese using **MeCab (via fugashi)**
-- outputs either:
-  - word frequency lists, or
-  - timestamped transcript lines
-
-### Features
-
-- Extract full vocabulary lists with frequency counts
-- Extract sentences (with timestamps or sentence indices)
-- Support for Japanese tokenization
-- Optional: stopword filtering
-- Modular and extendable for future features like CSV export or audio slicing
-
-### Requirements
-- `youtube-transcript-api`
-- For Japanese tokenization:
-```
-pip install "fugashi[unidic-lite]"
-```
-
-### Usage
 ```shell
-./yt-transcript.py {jp,es} <video_url_or_id> [options]
+./saiki.py youtube es VIDEO_ID
+./saiki.py youtube es VIDEO_ID --top 50
+./saiki.py youtube jp VIDEO_ID --mode sentences
+./saiki.py youtube es VIDEO_ID --raw --no-stopwords
 ```
 
-### Options
-| Option                     | Description                            |
-| -------------------------- | -------------------------------------- |
-| `--mode {vocab,sentences}` | Output mode (default: `vocab`)         |
-| `--top N`                  | Show only the top N words (vocab mode) |
-| `--no-stopwords`           | Keep common words                      |
-| `--raw`                    | (Spanish only) Do not lowercase tokens |
+Export Anki-ready sentence rows:
 
-
-### Examples
-#### Extract Spanish vocabulary
-```bash
-./yt-transcript.py es https://youtu.be/VIDEO_ID
+```shell
+./saiki.py youtube es VIDEO_ID --mode sentences --out youtube.tsv
 ```
 
-#### Top 50 words
-```bash
-./yt-transcript.py es VIDEO_ID --top 50
+Export only rows that appear to contain unknown vocabulary:
+
+```shell
+./saiki.py youtube es VIDEO_ID \
+  --mode sentences \
+  --out youtube_new.tsv \
+  --known-words ~/Languages/Anki/anki-words/spanish/words_es.txt \
+  --only-new
 ```
 
-#### Japanese transcript with timestamps
-```bash
-./yt-transcript.py jp VIDEO_ID --mode sentences
+Sentence exports contain:
+
+```text
+sentence    timestamp    video_url    vocab_guess
 ```
 
-#### Keep Spanish casing and stopwords
-```bash
-./yt-transcript.py es VIDEO_ID --raw --no-stopwords
+### Import
+
+Generate TTS audio and add sentence cards to Anki.
+
+```shell
+./saiki.py import es
+./saiki.py import jp ~/Languages/Anki/sentences_jp.txt
+./saiki.py import es youtube.tsv --tags youtube,manual
 ```
 
-### Output formats
-#### Vocabulary mode
-```
-palabra: count
-```
-Example:
-```
-comer: 12
-hablar: 9
+The importer accepts plain text sentence files and TSV/CSV files with a
+`sentence` column. `text-to-speech` is always added as a tag. If `--tags` is not
+provided, `AI-generated` is added.
+
+### Known/New Words
+
+Compare any generated word list against an existing known list:
+
+```shell
+./saiki.py compare-words transcript_words.txt ~/Languages/Anki/anki-words/spanish/words_es.txt
 ```
 
-#### Sentence mode
-```
-[12.34s] sentence text here
-```
-Example:
-```
-[45.67s] 今日はいい天気ですね
+This prints entries from the first file whose word key does not appear in the
+second file.
+
+## Card Assumptions
+
+The default configuration assumes Basic notes with audio on `Front` and the
+target-language sentence on `Back`. Word mining reads only the first visible
+line by default; use `--full-field` to process the whole field.
+
+![anki_basic_card_jp](./figures/anki_basic_card_jp.png)
+
+## To Do
+
+- Add support for different Anki note/card types, including configurable field
+  mappings per language and per import workflow.
+- Support multiple import profiles, such as sentence cards, vocab cards, audio
+  cards, and cloze cards.
+- Let YouTube exports map directly into configurable note fields, not just a
+  fixed `sentence` column.
+- Add richer transcript filtering, such as minimum/maximum sentence length,
+  duplicate removal, and punctuation cleanup.
+- Add optional audio slicing from videos when timestamp data is available.
+- Improve known/new word matching with better lemmatization for transcript
+  vocabulary.
+- Add more language profiles beyond Japanese and Spanish.
+- Add a dry-run mode for imports that previews notes before sending anything to
+  AnkiConnect.
+- Build a GUI for common workflows like transcript review, sentence selection,
+  import previews, and configuration editing.
+- Add integration tests with mocked AnkiConnect responses.
+- Add shell completion or a small installed command once packaging becomes
+  useful.
+
+## Tests
+
+Pure logic tests use the standard library test runner:
+
+```shell
+python -m unittest discover -s tests
 ```
 
-### Language Notes
-#### Spanish
-- Simple regex-based tokenizer
-- Accented characters supported
-- Lowercased by default
+## License
 
-#### Japanese
-- Uses fugashi (MeCab)
-- Outputs surface forms
-- Filters via stopword list only (no POS filtering)
-
-# License
-
-This project is licensed under the MIT License.
-See the [`LICENSE`](./LICENSE) file for details.
+This project is licensed under the MIT License. See [`LICENSE`](./LICENSE).

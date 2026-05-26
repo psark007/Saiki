@@ -1,0 +1,43 @@
+# Example Saiki configuration.
+#
+# Copy this to ~/.config/saiki/config.yaml and adjust paths, decks, fields, and
+# language profiles for your Anki setup.
+
+anki_connect_url: http://localhost:8765
+
+# Flatpak Anki commonly stores media here. A typical non-Flatpak Linux install
+# may use: ~/.local/share/Anki2/User 1/collection.media
+media_dir: ~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media
+audio_output_root: ~/Languages/Anki/anki-audio
+word_output_root: ~/Languages/Anki/anki-words
+sentence_dir: ~/Languages/Anki
+note_model: Basic
+
+fields:
+  front: Front
+  back: Back
+
+languages:
+  jp:
+    name: japanese
+    transcript_code: ja
+    tts_code: ja
+    tts_tld: com
+    tts_tempo: 1.35
+    decks:
+      - 日本語
+    field: Back
+    word_model: ja_core_news_lg
+    sentence_file: sentences_jp.txt
+
+  es:
+    name: spanish
+    transcript_code: es
+    tts_code: es
+    tts_tld: es
+    tts_tempo: 1.25
+    decks:
+      - Español
+    field: Back
+    word_model: es_core_news_sm
+    sentence_file: sentences_es.txt

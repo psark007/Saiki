@@ -8,6 +8,11 @@ import regex as re
 
 
 def extract_first_visible_line(text: str) -> str:
+    """Strip simple HTML and return the first visible line of text.
+
+    This is useful for card fields where the first line is the sentence and
+    subsequent lines may contain notes, hints, or generated markup.
+    """
     text = unescape(text or "")
     text = re.sub(r"</?(br|div|p)[^>]*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
@@ -16,6 +21,7 @@ def extract_first_visible_line(text: str) -> str:
 
 
 def extract_visible_text(text: str) -> str:
+    """Strip simple HTML while preserving paragraph-like line breaks."""
     text = unescape(text or "")
     text = re.sub(r"</?(br|div|p)[^>]*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
@@ -25,5 +31,5 @@ def extract_visible_text(text: str) -> str:
 
 
 def normalize_word_key(value: str) -> str:
+    """Normalize a word for set membership and comparison."""
     return re.sub(r"\s+", " ", value.strip().lower())
-

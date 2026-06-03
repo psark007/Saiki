@@ -26,15 +26,22 @@ JAPANESE_ALLOWED_POS = {"NOUN", "PROPN", "VERB", "ADJ"}
 
 
 def setup_logging(logfile: str) -> None:
+    """Configure file logging for word extraction scripts."""
     os.makedirs(os.path.dirname(os.path.abspath(logfile)), exist_ok=True)
     logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
 def build_query_from_decks(decks: list[str]) -> str:
+    """Build an Anki search query that matches any configured deck."""
     return " OR ".join(f'deck:"{d}"' for d in decks)
 
 
 def japanese_filter(token) -> bool:
+    """Return whether a spaCy token is useful Japanese vocabulary.
+
+    The filter is intentionally conservative: it keeps content words and drops
+    common particles, helper grammar, stop words, URLs, and obvious HTML debris.
+    """
     text = (token.text or "").strip()
     lemma = (token.lemma_ or "").strip()
     if not text or not JAPANESE_CHAR_RE.fullmatch(text):
@@ -51,14 +58,17 @@ def japanese_filter(token) -> bool:
 
 
 def spanish_filter(token) -> bool:
+    """Return whether a spaCy token is useful Spanish vocabulary."""
     return bool(getattr(token, "is_alpha", False)) and not bool(getattr(token, "is_stop", False))
 
 
 def spanish_format(token) -> str:
+    """Normalize a Spanish token to its lowercase lemma."""
     return (token.lemma_ or token.text or "").lower().strip()
 
 
 def japanese_format(token) -> str:
+    """Format a Japanese token as lemma plus surface form when they differ."""
     lemma = (token.lemma_ or "").strip()
     surface = (token.text or "").strip()
     if lemma and surface and lemma != surface:
@@ -73,6 +83,7 @@ LANGUAGE_PROFILES = {
 
 
 def load_spacy_model(model_name: str):
+    """Load a spaCy model with installation-oriented error messages."""
     try:
         import spacy  # type: ignore
     except Exception as e:
@@ -84,6 +95,7 @@ def load_spacy_model(model_name: str):
 
 
 def get_notes(query: str, config: Config, request: Callable = anki_request) -> list[dict]:
+    """Fetch Anki note details matching a search query."""
     note_ids = request("findNotes", url=config.anki_connect_url, query=query) or []
     if not note_ids:
         return []
@@ -98,6 +110,7 @@ def extract_counts(
     output_format: Callable,
     use_full_field: bool,
 ) -> Counter:
+    """Count formatted vocabulary items across Anki notes."""
     counter: Counter = Counter()
     for note in notes:
         fields = note.get("fields", {}) or {}
@@ -114,6 +127,7 @@ def extract_counts(
 
 
 def write_counts(counter: Counter, out_path: str, min_freq: int) -> int:
+    """Write a sorted ``word frequency`` list and return the number of rows."""
     items = [(w, c) for (w, c) in counter.items() if c >= min_freq]
     items.sort(key=lambda x: (-x[1], x[0]))
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -124,6 +138,7 @@ def write_counts(counter: Counter, out_path: str, min_freq: int) -> int:
 
 
 def read_word_file(path: str) -> set[str]:
+    """Read a ``word frequency`` file into normalized word keys."""
     words: set[str] = set()
     with open(os.path.expanduser(path), "r", encoding="utf-8") as fh:
         for line in fh:
@@ -136,6 +151,7 @@ def read_word_file(path: str) -> set[str]:
 
 
 def compare_word_files(source_path: str, known_path: str) -> list[str]:
+    """Return source rows whose normalized word is not in the known list."""
     known = read_word_file(known_path)
     new_words: list[str] = []
     with open(os.path.expanduser(source_path), "r", encoding="utf-8") as fh:
@@ -162,6 +178,12 @@ def extract_words(
     spacy_model: str | None = None,
     request: Callable = anki_request,
 ) -> dict[str, object]:
+    """Extract frequent vocabulary from configured Anki cards.
+
+    The function accepts explicit query/deck/field overrides for CLI use, but
+    defaults to the selected language config. Its dictionary return value keeps
+    the CLI output simple and gives tests stable fields to assert against.
+    """
     language_bucket = config.language_name(lang)
     profile = LANGUAGE_PROFILES[language_bucket]
     search_query = query or build_query_from_decks(decks or config.decks_for(lang))
@@ -180,4 +202,3 @@ def extract_words(
     counter = extract_counts(notes, field_name, nlp, profile["token_filter"], profile["output_format"], full_field)
     written = write_counts(counter, out_path, min_freq)
     return {"query": search_query, "notes": len(notes), "unique": len(counter), "written": written, "out": out_path}
-

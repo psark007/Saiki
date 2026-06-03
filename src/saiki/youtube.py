@@ -27,11 +27,14 @@ STOPWORDS = {
 
 @dataclass(frozen=True)
 class TranscriptLine:
+    """One cleaned transcript line with its start timestamp in seconds."""
+
     start: float
     text: str
 
 
 def extract_video_id(url_or_id: str) -> str:
+    """Extract a YouTube video id from a URL, or pass an id through unchanged."""
     if "youtube" in url_or_id or "youtu.be" in url_or_id:
         query = urlparse(url_or_id)
         if query.hostname == "youtu.be":
@@ -44,11 +47,13 @@ def extract_video_id(url_or_id: str) -> str:
 
 
 def video_url(video_or_id: str) -> str:
+    """Return a canonical watch URL for a YouTube id or URL."""
     video_id = extract_video_id(video_or_id)
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
 def fetch_transcript(video_id: str, lang_code: str):
+    """Fetch a transcript while supporting old and new library APIs."""
     if hasattr(YouTubeTranscriptApi, "fetch"):
         api = YouTubeTranscriptApi()
         return api.fetch(video_id, languages=[lang_code])
@@ -58,18 +63,21 @@ def fetch_transcript(video_id: str, lang_code: str):
 
 
 def snippet_text(entry) -> str:
+    """Read transcript text from either dict-like or object-like entries."""
     if isinstance(entry, dict):
         return entry.get("text", "") or ""
     return getattr(entry, "text", "") or ""
 
 
 def snippet_start(entry) -> float:
+    """Read transcript start time from either dict-like or object-like entries."""
     if isinstance(entry, dict):
         return float(entry.get("start", 0.0) or 0.0)
     return float(getattr(entry, "start", 0.0) or 0.0)
 
 
 def transcript_lines(entries) -> list[TranscriptLine]:
+    """Normalize raw transcript entries into non-empty transcript lines."""
     lines: list[TranscriptLine] = []
     for entry in entries:
         text = snippet_text(entry).replace("\n", " ").strip()
@@ -79,6 +87,7 @@ def transcript_lines(entries) -> list[TranscriptLine]:
 
 
 def tokenize_japanese(text: str) -> list[str]:
+    """Tokenize Japanese text with fugashi."""
     try:
         from fugashi import Tagger
     except ImportError as e:
@@ -88,15 +97,18 @@ def tokenize_japanese(text: str) -> list[str]:
 
 
 def tokenize_spanish(text: str, raw: bool = False) -> list[str]:
+    """Tokenize Spanish-ish text with a lightweight word regex."""
     tokens = re.findall(r"\b[\wáéíóúñü]+\b", text)
     return tokens if raw else [t.lower() for t in tokens]
 
 
 def tokenize_text(text: str, lang_code: str, raw: bool = False) -> list[str]:
+    """Dispatch transcript tokenization by language code."""
     return tokenize_japanese(text) if lang_code == "ja" else tokenize_spanish(text, raw=raw)
 
 
 def count_words(tokens: list[str], lang_code: str, remove_stopwords: bool = True) -> Counter:
+    """Count tokens, optionally excluding the built-in stopword list."""
     if remove_stopwords:
         stopwords = STOPWORDS.get(lang_code, set())
         tokens = [t for t in tokens if t not in stopwords]
@@ -104,6 +116,7 @@ def count_words(tokens: list[str], lang_code: str, remove_stopwords: bool = True
 
 
 def sentence_vocab(sentence: str, lang_code: str, known_words: set[str] | None = None) -> list[str]:
+    """Guess distinct useful vocabulary for one transcript sentence."""
     words: list[str] = []
     seen: set[str] = set()
     for token in tokenize_text(sentence, lang_code):
@@ -126,6 +139,7 @@ def write_sentence_export(
     known_words_path: str | None = None,
     only_new: bool = False,
 ) -> int:
+    """Write transcript lines as Anki-importable sentence rows."""
     known = read_word_file(known_words_path) if known_words_path else None
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     written = 0
@@ -154,6 +168,7 @@ def run_youtube(
     known_words: str | None = None,
     only_new: bool = False,
 ) -> dict[str, object]:
+    """Run transcript mining in either vocabulary or sentence-export mode."""
     lang_code = config.transcript_code(lang)
     video_id = extract_video_id(video)
     entries = fetch_transcript(video_id, lang_code)
@@ -176,4 +191,3 @@ def run_youtube(
             for word, count in items:
                 fh.write(f"{word} {count}\n")
     return {"mode": mode, "items": items, "out": out}
-

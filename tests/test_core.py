@@ -4,15 +4,26 @@ import os
 import sys
 import tempfile
 import unittest
+from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from saiki.audio import build_playlist, resolve_media_paths
-from saiki.config import DEFAULT_CONFIG, deep_merge
-from saiki.importer import parse_tags, read_sentences
+from saiki.config import Config, DEFAULT_CONFIG, deep_merge
+from saiki.importer import (
+    PreparedTtsBackend,
+    import_sentences,
+    list_tts_voices,
+    parse_tags,
+    prepare_tts_backend,
+    read_sentences,
+    synthesize_tts_sample,
+    supported_tts_backends,
+)
 from saiki.text import extract_first_visible_line, extract_visible_text
 from saiki.words import build_query_from_decks, compare_word_files, read_word_file
 from saiki.youtube import TranscriptLine, extract_video_id, sentence_vocab, write_sentence_export
@@ -23,6 +34,7 @@ class ConfigTests(unittest.TestCase):
         merged = deep_merge(DEFAULT_CONFIG, {"languages": {"es": {"decks": ["Spanish"]}}})
         self.assertEqual(merged["languages"]["es"]["decks"], ["Spanish"])
         self.assertEqual(merged["languages"]["es"]["transcript_code"], "es")
+        self.assertEqual(merged["tts_model_dir"], "~/.local/share/saiki/models")
         self.assertIn("jp", merged["languages"])
 
 
@@ -106,6 +118,87 @@ class ImporterTests(unittest.TestCase):
                 fh.write("sentence\ttimestamp\tvideo_url\tvocab_guess\n")
                 fh.write("Hola mundo\t1.00\thttps://example.test\tmundo\n")
             self.assertEqual(read_sentences(path), ["Hola mundo"])
+
+    def test_supported_tts_backends_are_free_options(self):
+        self.assertEqual(supported_tts_backends(), ["edge-tts", "espeak-ng", "gtts", "kokoro", "piper"])
+
+    def test_list_gtts_voice_hint(self):
+        config = Config(deep_merge(deepcopy(DEFAULT_CONFIG), {"languages": {"es": {"tts_code": "es", "tts_tld": "es"}}}))
+        voices = list_tts_voices(config, "es", backend="gtts")
+        self.assertIn("gtts does not expose named voices.", voices)
+        self.assertIn("tts_code=es", voices[1])
+
+    def test_list_edge_voice_uses_configured_voice(self):
+        voices = list_tts_voices(Config(deepcopy(DEFAULT_CONFIG)), "es")
+        self.assertEqual(voices[0], "Configured edge-tts voice: es-ES-ElviraNeural")
+
+    def test_prepare_tts_backend_validates_required_keys(self):
+        with self.assertRaisesRegex(RuntimeError, "tts_voice"):
+            prepare_tts_backend({"tts_backend": "edge-tts"})
+
+    def test_prepare_tts_backend_expands_model_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = os.path.join(tmp, "voice.onnx")
+            config = os.path.join(tmp, "voice.onnx.json")
+            for path in [model, config]:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write("{}")
+
+            with patch("saiki.importer.require_command"):
+                backend = prepare_tts_backend(
+                    {
+                        "tts_backend": "piper",
+                        "tts_model_dir": tmp,
+                        "tts_model": "voice.onnx",
+                        "tts_config": "voice.onnx.json",
+                    }
+                )
+
+            with patch("saiki.importer.subprocess.run") as run:
+                backend.synthesize("Hola", "/tmp/out.wav")
+
+        args = run.call_args.args[0]
+        self.assertEqual(args[2], model)
+        self.assertEqual(args[4], config)
+        self.assertEqual(run.call_args.kwargs["input"], b"Hola\n")
+
+    def test_synthesize_tts_sample_uses_backend_and_speed_audio(self):
+        seen: dict[str, str] = {}
+
+        def synthesize(sentence: str, output: str) -> None:
+            seen["sentence"] = sentence
+            seen["raw_output"] = output
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = os.path.join(tmp, "sample.mp3")
+            with patch("saiki.importer.prepare_tts_backend") as prepare, patch(
+                "saiki.importer.require_command"
+            ), patch("saiki.importer.speed_audio") as speed:
+                prepare.return_value = PreparedTtsBackend("fake", ".wav", synthesize)
+                result = synthesize_tts_sample(Config(deepcopy(DEFAULT_CONFIG)), "es", output=output)
+
+        self.assertEqual(result, output)
+        self.assertEqual(seen["sentence"], "Esta es una prueba.")
+        self.assertTrue(seen["raw_output"].endswith(".wav"))
+        speed.assert_called_once()
+
+    def test_import_sentences_returns_error_details(self):
+        def fail_synthesis(sentence: str, output: str) -> None:
+            raise RuntimeError("tts broke")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "sentences.txt")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("Hola mundo\n")
+
+            with patch("saiki.importer.prepare_tts_backend") as prepare, patch("saiki.importer.require_command"):
+                prepare.return_value = PreparedTtsBackend("fake", ".mp3", fail_synthesis)
+                result = import_sentences(Config(deepcopy(DEFAULT_CONFIG)), "es", path, request=lambda *a, **k: None)
+
+        self.assertEqual(result.processed, 1)
+        self.assertEqual(result.added, 0)
+        self.assertEqual(result.failed, 1)
+        self.assertEqual(result.errors, ["'Hola mundo': tts broke"])
 
 
 if __name__ == "__main__":

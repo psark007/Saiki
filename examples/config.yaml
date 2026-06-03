@@ -11,6 +11,7 @@ media_dir: ~/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.media
 audio_output_root: ~/Languages/Anki/anki-audio
 word_output_root: ~/Languages/Anki/anki-words
 sentence_dir: ~/Languages/Anki
+tts_model_dir: ~/.local/share/saiki/models
 note_model: Basic
 
 fields:
@@ -21,8 +22,6 @@ languages:
   jp:
     name: japanese
     transcript_code: ja
-    tts_code: ja
-    tts_tld: com
     tts_tempo: 1.35
     decks:
       - 日本語
@@ -30,14 +29,69 @@ languages:
     word_model: ja_core_news_lg
     sentence_file: sentences_jp.txt
 
+    # --- TTS backend (pick one) ---
+
+    # edge-tts (default): Microsoft Edge neural TTS. Requires: pip install edge-tts
+    tts_backend: edge-tts
+    tts_voice: ja-JP-NanamiNeural   # or ja-JP-KeitaNeural for male
+
+    # gtts: free Google TTS via gtts-cli. Requires: pip install gtts
+    # tts_backend: gtts
+    # tts_code: ja
+    # tts_tld: com
+
+    # piper: no stock Japanese voice is listed in Piper's official voice catalog.
+    # Only use this backend for JP if you have your own compatible Japanese model.
+
+    # espeak-ng: Japanese support is kana-only in the upstream docs, so this is
+    # not a good fit for normal Japanese sentences that include kanji.
+
+    # kokoro: offline neural TTS. Requires: pip install kokoro-onnx soundfile
+    # plus the Kokoro model/voice files and Japanese G2P dependencies for your
+    # installed Kokoro release. Kokoro lists Japanese voices, but its docs warn
+    # that non-English quality can be thin.
+    # tts_backend: kokoro
+    # tts_model: kokoro-v1.0.onnx
+    # tts_voices: voices-v1.0.bin
+    # tts_vocab_config: kokoro-ja-config.json
+    # tts_voice: jf_alpha   # Japanese female; jm_kumo for male
+    # tts_code: ja
+
   es:
     name: spanish
     transcript_code: es
-    tts_code: es
-    tts_tld: es
     tts_tempo: 1.25
     decks:
       - Español
     field: Back
     word_model: es_core_news_sm
     sentence_file: sentences_es.txt
+
+    # --- TTS backend (pick one) ---
+
+    # edge-tts (default): Microsoft Edge neural TTS. Requires: pip install edge-tts
+    tts_backend: edge-tts
+    tts_voice: es-ES-ElviraNeural   # or es-MX-DaliaNeural for Mexican Spanish
+
+    # gtts: free Google TTS via gtts-cli. Requires: pip install gtts
+    # tts_backend: gtts
+    # tts_code: es
+    # tts_tld: es
+
+    # piper: offline neural TTS. Requires: piper binary + model download
+    # tts_backend: piper
+    # tts_model: es_ES-davefx-medium.onnx
+    # tts_config: es_ES-davefx-medium.onnx.json
+
+    # espeak-ng: offline, lightweight, robotic quality. Requires: espeak-ng package
+    # tts_backend: espeak-ng
+    # tts_voice: es
+
+    # kokoro: offline neural TTS. Requires: pip install kokoro-onnx soundfile
+    # plus the Kokoro model/voice files. Kokoro lists Spanish voices, but its
+    # docs warn that non-English quality can be thin.
+    # tts_backend: kokoro
+    # tts_model: kokoro-v1.0.onnx
+    # tts_voices: voices-v1.0.bin
+    # tts_voice: ef_dora   # Spanish female
+    # tts_code: es

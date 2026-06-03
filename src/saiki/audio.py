@@ -16,6 +16,13 @@ AUDIO_EXTS = (".mp3", ".wav", ".ogg", ".m4a", ".flac")
 
 
 def resolve_media_paths(media_dir: str, out_dir: str, media_name: str) -> tuple[str, str] | None:
+    """Return safe source and destination paths for one Anki media filename.
+
+    Anki stores audio references as media names, not arbitrary filesystem
+    paths. Absolute paths and parent-directory traversal are rejected so a
+    malformed card cannot make the export read or write outside the configured
+    media/output directories.
+    """
     normalized = os.path.normpath(media_name)
     if os.path.isabs(normalized) or normalized.startswith(".."):
         return None
@@ -23,6 +30,7 @@ def resolve_media_paths(media_dir: str, out_dir: str, media_name: str) -> tuple[
 
 
 def build_playlist(out_dir: str, language: str) -> str:
+    """Write an M3U playlist containing exported audio files for a language."""
     m3u_path = os.path.join(out_dir, f"{language}.m3u")
     concat_name = f"{language}_concat.mp3"
     files: list[str] = []
@@ -42,6 +50,7 @@ def build_playlist(out_dir: str, language: str) -> str:
 
 
 def concat_audio_from_m3u(out_dir: str, m3u_path: str, out_path: str) -> None:
+    """Concatenate playlist entries into a single MP3 with ffmpeg."""
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg not found in PATH. Install ffmpeg to use --concat.")
 
@@ -59,6 +68,8 @@ def concat_audio_from_m3u(out_dir: str, m3u_path: str, out_path: str) -> None:
     with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
         concat_list_path = tmp.name
         for path in abs_files:
+            # ffmpeg's concat demuxer uses single-quoted paths. Escape literal
+            # apostrophes so media filenames from Anki remain valid entries.
             tmp.write(f"file '{path.replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))}'\n")
 
     cmd = [
@@ -83,6 +94,13 @@ def extract_audio(
     concat: bool = False,
     request: Callable = anki_request,
 ) -> dict[str, object]:
+    """Copy audio from configured Anki decks and build a playlist.
+
+    The return value is intentionally CLI-friendly: it reports the number of
+    copied files, the playlist path, the output directory, and the optional
+    concatenated MP3 path. ``request`` is injectable so tests can exercise the
+    workflow without a running Anki instance.
+    """
     language = config.language_name(lang)
     selected_decks = config.decks_for(lang)
     if not selected_decks:
@@ -123,4 +141,3 @@ def extract_audio(
         concat_path = os.path.join(out_dir, f"{language}_concat.mp3")
         concat_audio_from_m3u(out_dir, m3u_path, concat_path)
     return {"copied": len(copied), "playlist": m3u_path, "outdir": out_dir, "concat": concat_path}
-

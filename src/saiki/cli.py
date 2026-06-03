@@ -7,17 +7,67 @@ import sys
 
 from .audio import extract_audio
 from .config import Config, language_choices, load_config
-from .importer import import_sentences
+from .importer import (
+    format_tts_error,
+    import_sentences,
+    list_tts_voices,
+    supported_tts_backends,
+    synthesize_tts_sample,
+)
 from .words import compare_word_files, extract_words
 from .youtube import run_youtube
 
 
 def add_config_arg(parser: argparse.ArgumentParser) -> None:
+    """Attach the shared ``--config`` option to a parser."""
     parser.add_argument("--config", help="Path to YAML config file.")
 
 
+def add_tts_override_args(parser: argparse.ArgumentParser, tts_backends: list[str]) -> None:
+    """Attach per-command TTS override flags.
+
+    These options intentionally mirror config keys so command-line overrides
+    can be collected mechanically and merged over the selected language.
+    """
+    parser.add_argument("--tts-backend", choices=tts_backends, help="Override the configured TTS backend.")
+    parser.add_argument("--tts-voice", help="Override the configured backend voice.")
+    parser.add_argument("--tts-voices", help="Override the configured backend voice bundle path.")
+    parser.add_argument("--tts-model", help="Override the configured backend model or local model path.")
+    parser.add_argument("--tts-model-dir", help="Override the directory used for relative TTS model paths.")
+    parser.add_argument("--tts-config", help="Override the configured backend model config path.")
+    parser.add_argument("--tts-vocab-config", help="Override the configured backend vocab config path.")
+    parser.add_argument("--tts-code", help="Override the configured backend language code.")
+    parser.add_argument("--tts-tld", help="Override the configured gTTS top-level domain.")
+    parser.add_argument("--tts-tempo", type=float, help="Override the post-processing tempo multiplier.")
+    parser.add_argument("--tts-speed", type=float, help="Override backend-native speech speed when supported.")
+
+
+def collect_tts_overrides(args: argparse.Namespace) -> dict[str, object]:
+    """Collect TTS override attributes from an argparse namespace."""
+    return {
+        "tts_backend": getattr(args, "tts_backend", None),
+        "tts_voice": getattr(args, "tts_voice", None),
+        "tts_voices": getattr(args, "tts_voices", None),
+        "tts_model": getattr(args, "tts_model", None),
+        "tts_model_dir": getattr(args, "tts_model_dir", None),
+        "tts_config": getattr(args, "tts_config", None),
+        "tts_vocab_config": getattr(args, "tts_vocab_config", None),
+        "tts_code": getattr(args, "tts_code", None),
+        "tts_tld": getattr(args, "tts_tld", None),
+        "tts_tempo": getattr(args, "tts_tempo", None),
+        "tts_speed": getattr(args, "tts_speed", None),
+    }
+
+
 def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
+    """Build the full CLI parser.
+
+    Passing a loaded config lets argparse choices reflect user-defined language
+    codes. When no config is supplied, defaults are loaded so the parser remains
+    usable in tests and help-generation contexts.
+    """
     choices = language_choices(config or load_config())
+    tts_backends = supported_tts_backends()
     parser = argparse.ArgumentParser(description="Saiki: sentence mining and listening tools for Anki.")
     add_config_arg(parser)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -61,11 +111,25 @@ def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
     importer.add_argument("lang", choices=choices)
     importer.add_argument("sentence_file", nargs="?")
     importer.add_argument("--tags", help="Comma-separated tags. text-to-speech is always included.")
+    add_tts_override_args(importer, tts_backends)
+
+    test_tts = sub.add_parser("tts-test", help="Synthesize one TTS sample without importing into Anki.")
+    test_tts.add_argument("lang", choices=choices)
+    test_tts.add_argument("text", nargs="?")
+    test_tts.add_argument("--out", help="Output MP3 path. Defaults to ./tts_test_<lang>_<backend>.mp3.")
+    add_tts_override_args(test_tts, tts_backends)
+
+    voices = sub.add_parser("tts-voices", help="List voices or voice-listing hints for a TTS backend.")
+    voices.add_argument("lang", nargs="?", choices=choices)
+    voices.add_argument("--backend", choices=tts_backends, help="Backend to list instead of the language default.")
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the CLI and return a process exit status."""
+    # Parse --config first so subcommand language choices can come from the
+    # user's config file instead of only the built-in defaults.
     pre = argparse.ArgumentParser(add_help=False)
     add_config_arg(pre)
     known, _ = pre.parse_known_args(argv)
@@ -114,9 +178,26 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "import":
-        result = import_sentences(config, args.lang, args.sentence_file, args.tags)
+        tts_overrides = collect_tts_overrides(args)
+        result = import_sentences(config, args.lang, args.sentence_file, args.tags, tts_overrides=tts_overrides)
         print(f"Done. Added {result.added}/{result.processed} cards. Failed: {result.failed}")
+        for error in result.errors:
+            print(f"Error: {error}", file=sys.stderr)
         return 0 if result.failed == 0 else 1
+
+    if args.command == "tts-test":
+        try:
+            output = synthesize_tts_sample(config, args.lang, args.text, args.out, collect_tts_overrides(args))
+            print(f"Wrote TTS sample: {output}")
+            return 0
+        except Exception as exc:
+            print(f"Error: {format_tts_error(exc)}", file=sys.stderr)
+            return 1
+
+    if args.command == "tts-voices":
+        for line in list_tts_voices(config, args.lang, args.backend):
+            print(line)
+        return 0
 
     parser.print_help()
     return 2

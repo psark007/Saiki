@@ -125,7 +125,7 @@ languages:
     transcript_code: ja
     tts_backend: edge-tts
     tts_voice: ja-JP-NanamiNeural
-    tts_tempo: 1.35
+    tts_tempo: 1.15
     decks: ["日本語"]
     field: Back
     word_model: ja_core_news_lg
@@ -135,7 +135,7 @@ languages:
     transcript_code: es
     tts_backend: edge-tts
     tts_voice: es-ES-ElviraNeural
-    tts_tempo: 1.25
+    tts_tempo: 1
     decks: ["Español"]
     field: Back
     word_model: es_core_news_sm

@@ -22,7 +22,7 @@ languages:
   jp:
     name: japanese
     transcript_code: ja
-    tts_tempo: 1.35
+    tts_tempo: 1.15
     decks:
       - 日本語
     field: Back
@@ -60,7 +60,7 @@ languages:
   es:
     name: spanish
     transcript_code: es
-    tts_tempo: 1.25
+    tts_tempo: 1
     decks:
       - Español
     field: Back

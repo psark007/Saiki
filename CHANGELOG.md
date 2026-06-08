@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Renamed the project to Saiki (`採記`).
-- Replaced the old script collection with one CLI: `./saiki.py`.
+- Replaced the old script collection with one CLI: `saiki`.
 - Added YAML configuration loading from `~/.config/saiki/config.yaml`.
 - Added YouTube transcript exports for Anki-ready sentence mining.
 - Added known/new word comparison.

@@ -22,7 +22,7 @@ languages:
   jp:
     name: japanese
     transcript_code: ja
-    tts_tempo: 1.15
+    tts_tempo: 1
     decks:
       - 日本語
     field: Back

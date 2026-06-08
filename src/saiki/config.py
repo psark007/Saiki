@@ -32,7 +32,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "transcript_code": "ja",
             "tts_backend": "edge-tts",
             "tts_voice": "ja-JP-NanamiNeural",
-            "tts_tempo": 1.15,
+            "tts_tempo": 1,
             "decks": ["日本語"],
             "word_model": "ja_core_news_lg",
             "field": "Back",

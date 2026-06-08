@@ -9,16 +9,14 @@ The name is a coined Japanese compound from `採` as in gathering/collecting and
 "sigh-key".
 
 ```shell
-./saiki.py --help
+saiki --help
 ```
 
 ## Requirements
 
-- Python 3.12 recommended
+- Python 3.12+
 - [Anki](https://apps.ankiweb.net/) with [AnkiConnect](https://github.com/amikey/anki-connect)
 - `ffmpeg`
-- Python dependencies from `requirements.txt`
-- Optional extra TTS backend tools: `piper`, `espeak-ng`, and `kokoro-onnx`.
 - spaCy models for word mining:
 
 ```shell
@@ -31,19 +29,29 @@ Setup example:
 ```shell
 python3.12 -m venv ~/.venv/saiki
 source ~/.venv/saiki/bin/activate
-python3 -m pip install -U pip
-pip install -r requirements.txt
+pip install -U pip
+pip install -e .
 sudo dnf install ffmpeg
+```
+
+### Updating
+
+If you installed with `pip install -e .` (editable mode), changes to the source
+are live immediately — no reinstall needed. Only re-run `pip install -e .` if
+you pull changes that add new dependencies or scripts.
+
+```shell
+git pull
+pip install -e .   # only needed if pyproject.toml changed
 ```
 
 ### Optional TTS Backends
 
-The default `edge-tts` backend is installed by `requirements.txt`. Install only
-the optional pieces you plan to test:
+The default `edge-tts` backend is included. To install the optional Python-backed
+engines (piper, kokoro):
 
 ```shell
-# Python-backed optional engines: piper, kokoro.
-pip install -r requirements-tts.txt
+pip install ".[tts]"
 
 # System package for espeak-ng.
 sudo dnf install espeak-ng
@@ -103,7 +111,7 @@ Defaults are built in, but you can override them with YAML:
 Or pass a config explicitly:
 
 ```shell
-./saiki.py --config ./config.yaml words jp
+saiki --config ./config.yaml words jp
 ```
 
 Example:
@@ -125,7 +133,7 @@ languages:
     transcript_code: ja
     tts_backend: edge-tts
     tts_voice: ja-JP-NanamiNeural
-    tts_tempo: 1.15
+    tts_tempo: 1
     decks: ["日本語"]
     field: Back
     word_model: ja_core_news_lg
@@ -157,9 +165,9 @@ Extract audio referenced by `[sound:...]` tags from configured decks and create
 an `.m3u` playlist.
 
 ```shell
-./saiki.py audio jp
-./saiki.py audio es --concat
-./saiki.py audio jp --media-dir ~/.local/share/Anki2/User\ 1/collection.media --copy-only-new
+saiki audio jp
+saiki audio es --concat
+saiki audio jp --media-dir ~/.local/share/Anki2/User\ 1/collection.media --copy-only-new
 ```
 
 Outputs go to `~/Languages/Anki/anki-audio/<language>/` by default.
@@ -169,11 +177,11 @@ Outputs go to `~/Languages/Anki/anki-audio/<language>/` by default.
 Extract frequent words from Anki notes using AnkiConnect and spaCy.
 
 ```shell
-./saiki.py words jp
-./saiki.py words es --deck "Español"
-./saiki.py words es --query 'deck:"Español" tag:youtube'
-./saiki.py words jp --min-freq 3 --out words_jp.txt
-./saiki.py words jp --full-field
+saiki words jp
+saiki words es --deck "Español"
+saiki words es --query 'deck:"Español" tag:youtube'
+saiki words jp --min-freq 3 --out words_jp.txt
+saiki words jp --full-field
 ```
 
 Output format:
@@ -196,22 +204,22 @@ hablar 9
 Mine vocabulary or sentence rows from YouTube subtitles.
 
 ```shell
-./saiki.py youtube es VIDEO_ID
-./saiki.py youtube es VIDEO_ID --top 50
-./saiki.py youtube jp VIDEO_ID --mode sentences
-./saiki.py youtube es VIDEO_ID --raw --no-stopwords
+saiki youtube es VIDEO_ID
+saiki youtube es VIDEO_ID --top 50
+saiki youtube jp VIDEO_ID --mode sentences
+saiki youtube es VIDEO_ID --raw --no-stopwords
 ```
 
 Export Anki-ready sentence rows:
 
 ```shell
-./saiki.py youtube es VIDEO_ID --mode sentences --out youtube.tsv
+saiki youtube es VIDEO_ID --mode sentences --out youtube.tsv
 ```
 
 Export only rows that appear to contain unknown vocabulary:
 
 ```shell
-./saiki.py youtube es VIDEO_ID \
+saiki youtube es VIDEO_ID \
   --mode sentences \
   --out youtube_new.tsv \
   --known-words ~/Languages/Anki/anki-words/spanish/words_es.txt \
@@ -229,10 +237,11 @@ sentence    timestamp    video_url    vocab_guess
 Generate TTS audio and add sentence cards to Anki.
 
 ```shell
-./saiki.py import es
-./saiki.py import jp ~/Languages/Anki/sentences_jp.txt
-./saiki.py import es youtube.tsv --tags youtube,manual
-./saiki.py import es --tts-voice es-MX-DaliaNeural
+saiki import es
+saiki import jp ~/Languages/Anki/sentences_jp.txt
+saiki import es youtube.tsv --tags youtube,manual
+saiki import es --tts-voice es-MX-DaliaNeural
+saiki import es --dry-run   # preview sentences without touching Anki or TTS
 ```
 
 The importer accepts plain text sentence files and TSV/CSV files with a
@@ -258,7 +267,7 @@ TTS is configured per language with `tts_backend`. Supported backends are:
 You can override backend settings for one import:
 
 ```shell
-./saiki.py import jp sentences_jp.txt \
+saiki import jp sentences_jp.txt \
   --tts-backend edge-tts \
   --tts-voice ja-JP-KeitaNeural
 ```
@@ -266,20 +275,20 @@ You can override backend settings for one import:
 Voice-listing helpers:
 
 ```shell
-./saiki.py tts-voices jp
-./saiki.py tts-voices es --backend edge-tts
+saiki tts-voices jp
+saiki tts-voices es --backend edge-tts
 ```
 
 Test a TTS backend without creating Anki cards:
 
 ```shell
-./saiki.py tts-test es --out /tmp/saiki_edge_default_es.mp3
-./saiki.py tts-test jp --tts-backend edge-tts --tts-voice ja-JP-NanamiNeural --out /tmp/saiki_edge_jp.mp3
-./saiki.py tts-test es --tts-backend edge-tts --tts-voice es-ES-ElviraNeural --out /tmp/saiki_edge_es.mp3
-./saiki.py tts-test es --tts-backend gtts --tts-code es --tts-tld es --out /tmp/saiki_gtts_es.mp3
-./saiki.py tts-test es --tts-backend piper --tts-model es_ES-davefx-medium.onnx --tts-config es_ES-davefx-medium.onnx.json --out /tmp/saiki_piper_es.mp3
-./saiki.py tts-test es --tts-backend espeak-ng --tts-voice es --out /tmp/saiki_espeak_es.mp3
-./saiki.py tts-test es --tts-backend kokoro --tts-model kokoro-v1.0.onnx --tts-voices voices-v1.0.bin --tts-voice ef_dora --out /tmp/saiki_kokoro_es.mp3
+saiki tts-test es --out /tmp/saiki_edge_default_es.mp3
+saiki tts-test jp --tts-backend edge-tts --tts-voice ja-JP-NanamiNeural --out /tmp/saiki_edge_jp.mp3
+saiki tts-test es --tts-backend edge-tts --tts-voice es-ES-ElviraNeural --out /tmp/saiki_edge_es.mp3
+saiki tts-test es --tts-backend gtts --tts-code es --tts-tld es --out /tmp/saiki_gtts_es.mp3
+saiki tts-test es --tts-backend piper --tts-model es_ES-davefx-medium.onnx --tts-config es_ES-davefx-medium.onnx.json --out /tmp/saiki_piper_es.mp3
+saiki tts-test es --tts-backend espeak-ng --tts-voice es --out /tmp/saiki_espeak_es.mp3
+saiki tts-test es --tts-backend kokoro --tts-model kokoro-v1.0.onnx --tts-voices voices-v1.0.bin --tts-voice ef_dora --out /tmp/saiki_kokoro_es.mp3
 ```
 
 For `kokoro`, put `tts_model`, `tts_voices`, and any needed `tts_vocab_config`
@@ -290,7 +299,7 @@ in your config file rather than typing every path each time.
 Compare any generated word list against an existing known list:
 
 ```shell
-./saiki.py compare-words transcript_words.txt ~/Languages/Anki/anki-words/spanish/words_es.txt
+saiki compare-words transcript_words.txt ~/Languages/Anki/anki-words/spanish/words_es.txt
 ```
 
 This prints entries from the first file whose word key does not appear in the
@@ -318,20 +327,16 @@ line by default; use `--full-field` to process the whole field.
 - Improve known/new word matching with better lemmatization for transcript
   vocabulary.
 - Add more language profiles beyond Japanese and Spanish.
-- Add a dry-run mode for imports that previews notes before sending anything to
-  AnkiConnect.
 - Build a GUI for common workflows like transcript review, sentence selection,
   import previews, and configuration editing.
 - Add integration tests with mocked AnkiConnect responses.
-- Add shell completion or a small installed command once packaging becomes
-  useful.
+- Add shell completion.
 
 ## Tests
 
-Pure logic tests use the standard library test runner:
-
 ```shell
-python -m unittest discover -s tests
+pip install -e ".[dev]"
+pytest
 ```
 
 ## License

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import sys
 
 from .audio import extract_audio
@@ -69,6 +70,11 @@ def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
     choices = language_choices(config or load_config())
     tts_backends = supported_tts_backends()
     parser = argparse.ArgumentParser(description="Saiki: sentence mining and listening tools for Anki.")
+    parser.add_argument(
+        "-V", "--version",
+        action="version",
+        version=f"%(prog)s {importlib.metadata.version('saiki')}",
+    )
     add_config_arg(parser)
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -111,6 +117,7 @@ def build_parser(config: Config | None = None) -> argparse.ArgumentParser:
     importer.add_argument("lang", choices=choices)
     importer.add_argument("sentence_file", nargs="?")
     importer.add_argument("--tags", help="Comma-separated tags. text-to-speech is always included.")
+    importer.add_argument("--dry-run", action="store_true", help="Preview sentences without generating TTS or adding cards.")
     add_tts_override_args(importer, tts_backends)
 
     test_tts = sub.add_parser("tts-test", help="Synthesize one TTS sample without importing into Anki.")
@@ -179,8 +186,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "import":
         tts_overrides = collect_tts_overrides(args)
-        result = import_sentences(config, args.lang, args.sentence_file, args.tags, tts_overrides=tts_overrides)
-        print(f"Done. Added {result.added}/{result.processed} cards. Failed: {result.failed}")
+        result = import_sentences(config, args.lang, args.sentence_file, args.tags, tts_overrides=tts_overrides, dry_run=args.dry_run)
+        if args.dry_run:
+            print(f"Dry run: {result.processed} sentence(s) would be imported.")
+        else:
+            print(f"Done. Added {result.added}/{result.processed} cards. Failed: {result.failed}")
         for error in result.errors:
             print(f"Error: {error}", file=sys.stderr)
         return 0 if result.failed == 0 else 1

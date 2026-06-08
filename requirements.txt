@@ -1,9 +1,0 @@
-requests
-regex
-spacy
-youtube-transcript-api
-fugashi[unidic-lite]
-gTTS
-edge-tts
-pyyaml
-genanki

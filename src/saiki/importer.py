@@ -495,6 +495,7 @@ def import_sentences(
     tags_value: str | None = None,
     request: Callable = anki_request,
     tts_overrides: Mapping[str, Any] | None = None,
+    dry_run: bool = False,
 ) -> ImportResult:
     """Generate TTS for each sentence and add cards through AnkiConnect.
 
@@ -514,6 +515,12 @@ def import_sentences(
 
     source = os.path.expanduser(sentence_file) if sentence_file else config.sentence_file_for(lang)
     sentences = read_sentences(source)
+
+    if dry_run:
+        for sentence in sentences:
+            print(f"  {_sentence_label(sentence)}")
+        return ImportResult(processed=len(sentences), added=0, failed=0, errors=[])
+
     tags = parse_tags(tags_value)
     front_field = config.fields.get("front", "Front")
     back_field = config.fields.get("back", "Back")

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "saiki"
+version = "0.1.0"
+description = "Toolkit for Anki-based language learning workflows"
+requires-python = ">=3.12"
+dependencies = [
+    "requests",
+    "regex",
+    "spacy",
+    "youtube-transcript-api",
+    "fugashi[unidic-lite]",
+    "gTTS",
+    "edge-tts",
+    "pyyaml",
+    "genanki",
+]
+
+[project.optional-dependencies]
+tts = [
+    "piper-tts",
+    "kokoro-onnx",
+    "soundfile",
+]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[project.scripts]
+saiki = "saiki.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/saiki"]

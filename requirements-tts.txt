@@ -1,5 +1,0 @@
-# Optional free TTS backends.
-# Install this only if you want to test/use non-default TTS engines.
-piper-tts
-kokoro-onnx
-soundfile
